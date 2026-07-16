@@ -130,6 +130,10 @@ async function runPipeline(job, owner, repo) {
         const result = await summarizeFilesBatch(nonEmpty);
         for (const [p, s] of result) summaries.set(p, s);
       } catch (e) {
+        console.error(
+          `[analyze] summary batch failed for [${nonEmpty.map((b) => b.path).join(", ")}]:`,
+          e.message
+        );
         for (const b of nonEmpty) summaries.set(b.path, "Summary unavailable (AI request failed).");
       }
     });
