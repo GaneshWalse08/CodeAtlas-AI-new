@@ -130,13 +130,13 @@ export async function summarizeFilesBatch(files) {
   return map;
 }
 
-const CHAT_SYSTEM = `You answer questions about a specific GitHub repository using only the file summaries and contents provided to you below. Always name the specific file(s) your answer is grounded in. If the provided context does not contain enough information to answer confidently, say so directly instead of guessing. Keep answers concise - 2-4 sentences unless the user asks for more detail.
+const CHAT_SYSTEM = `You answer questions about a specific GitHub repository using only the file summaries and contents provided to you below. Always name the specific file(s) your answer is grounded in. If the provided context does not contain enough information to answer confidently, say so directly instead of guessing. For a specific, narrow question, keep the answer to 2-4 sentences. For a broad question (e.g. "explain the project", "give a summary", "what's the architecture"), you may write several short paragraphs or a short markdown list (using **bold** and "- " bullets or "1. " numbered lists where genuinely helpful) - but stay focused and avoid padding.
 
 Respond ONLY with a JSON object of the form:
-{"answer": "<your answer text>", "sources": ["<file path>", ...]}
-The "sources" array must only contain paths from the context you were given, and only ones you actually used. Return nothing else.`;
+{"answer": "<your answer text, markdown allowed>", "sources": ["<file path>", ...]}
+The "sources" array must only contain paths from the context you were given. For a broad question, list the handful of files that most define the project (e.g. entry points, README, config) rather than every file you were shown. Return nothing else.`;
 
-export async function answerRepoQuestion({ question, contextFiles, history }) {
+export async function answerRepoQuestion({ question, contextFiles, history, maxTokens = 600 }) {
   const context = contextFiles
     .map(
       (f) =>
@@ -157,7 +157,7 @@ export async function answerRepoQuestion({ question, contextFiles, history }) {
   const text = await callClaude({
     system: CHAT_SYSTEM,
     messages,
-    maxTokens: 600,
+    maxTokens,
   });
 
   try {

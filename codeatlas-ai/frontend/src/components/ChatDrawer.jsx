@@ -4,6 +4,7 @@ import {
 } from "lucide-react";
 import { useStore } from "../store/useStore.js";
 import { askChat } from "../api.js";
+import MarkdownLite from "./MarkdownLite.jsx";
 
 const SUGGESTIONS = [
   "Where is the login logic?",
@@ -180,11 +181,19 @@ function Bubble({ message, onSourceClick }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[75%] rounded-btn px-3 py-2 text-sm ${
-          isUser ? "bg-chat-user text-white" : "bg-chat-ai text-text-primary border-l-2 border-accent"
+        className={`rounded-btn px-3 py-2 text-sm ${
+          isUser
+            ? "max-w-[75%] bg-chat-user text-white"
+            : "max-w-[90%] bg-chat-ai text-text-primary border-l-2 border-accent"
         }`}
       >
-        <p className="leading-relaxed">{message.content}</p>
+        {isUser ? (
+          <p className="leading-relaxed">{message.content}</p>
+        ) : (
+          <div className="leading-relaxed">
+            <MarkdownLite text={message.content} />
+          </div>
+        )}
         {!isUser && message.sources?.length > 0 && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {message.sources.map((s) => (
