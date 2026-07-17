@@ -11,6 +11,9 @@ const SUGGESTIONS = [
   "Which file should I look at first?",
 ];
 
+const COLLAPSED_HEIGHT = 48;
+const MIN_HEIGHT = 160;
+
 export default function ChatDrawer() {
   const chatOpen = useStore((s) => s.chatOpen);
   const toggleChat = useStore((s) => s.toggleChat);
@@ -23,7 +26,40 @@ export default function ChatDrawer() {
 
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
+  const [height, setHeight] = useState(() =>
+    typeof window !== "undefined" ? Math.round(window.innerHeight * 0.34) : 320
+  );
   const listRef = useRef(null);
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    function onMove(e) {
+      if (!draggingRef.current) return;
+      const next = window.innerHeight - e.clientY;
+      const max = window.innerHeight * 0.85;
+      setHeight(Math.min(Math.max(next, MIN_HEIGHT), max));
+    }
+    function onUp() {
+      if (!draggingRef.current) return;
+      draggingRef.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    }
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, []);
+
+  function startDrag(e) {
+    if (!chatOpen) return;
+    e.preventDefault();
+    draggingRef.current = true;
+    document.body.style.cursor = "row-resize";
+    document.body.style.userSelect = "none";
+  }
 
   useEffect(() => {
     if (chatPrefill) {
@@ -62,9 +98,17 @@ export default function ChatDrawer() {
 
   return (
     <div
-      className="border-t border-border bg-surface flex flex-col transition-all"
-      style={{ height: chatOpen ? "34vh" : 48 }}
+      className="border-t border-border bg-surface flex flex-col"
+      style={{ height: chatOpen ? height : COLLAPSED_HEIGHT }}
     >
+      {chatOpen && (
+        <div
+          onMouseDown={startDrag}
+          className="h-1.5 w-full shrink-0 cursor-row-resize hover:bg-accent/40 transition-colors"
+          title="Drag to resize"
+        />
+      )}
+
       <button
         onClick={() => toggleChat()}
         className="flex items-center gap-2 px-4 py-3 shrink-0 text-left"

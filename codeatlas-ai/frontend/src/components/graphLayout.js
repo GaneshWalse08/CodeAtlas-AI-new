@@ -1,116 +1,165 @@
-// Deterministic grid-based layout: folders arranged in a wrapping grid,
-// files inside each expanded folder arranged in a sub-grid. No external
-// layout library needed, keeps the hackathon build simple and predictable.
+// True directory-tree layout: a single root (the repo itself) branches into
+// its top-level folders, which branch into their subfolders, down to the
+// files themselves. Edges represent folder/file containment ("this folder
+// holds these children"), not import relationships - that keeps the map
+// readable even when files don't import each other directly. File-level
+// import/imported-by info is still available in the side panel via the
+// dedicated /api/file lookup, this just isn't what draws the canvas lines.
 
+const DIR_W = 220;
+const DIR_H = 56;
 const FILE_W = 180;
 const FILE_H = 40;
-const FILE_GAP = 12;
-const FOLDER_PAD = 16;
-const FOLDER_HEADER = 36;
-const FILES_PER_ROW = 3;
-const FOLDER_GAP_X = 60;
-const FOLDER_GAP_Y = 60;
-const FOLDERS_PER_ROW = 3;
-const COLLAPSED_W = 220;
-const COLLAPSED_H = 56;
+const GAP_Y = 14;
+const COL_OFFSET = 40;
+const COL_WIDTH = DIR_W + 70; // horizontal distance between tree depths
+const START_X = 40;
+const START_Y = 40;
 
-export function buildGraphElements(graph, { collapsedFolders, heatmapOn, riskFilter }) {
-  const byFolder = new Map();
-  for (const n of graph.nodes) {
-    if (!byFolder.has(n.folder)) byFolder.set(n.folder, []);
-    byFolder.get(n.folder).push(n);
-  }
-  const folderNames = [...byFolder.keys()].sort();
+/** Build a nested directory tree from the flat file list. */
+function buildTree(graph) {
+  const root = {
+    path: "__root__",
+    name: `${graph.owner}/${graph.repo}`,
+    childrenMap: new Map(),
+    files: [],
+  };
 
-  const nodes = [];
-  const idToRenderedId = new Map(); // file path -> node id actually rendered (file id or its folder id)
-
-  let col = 0;
-  let row = 0;
-  let rowMaxHeight = 0;
-  let cursorX = 40;
-  let cursorY = 40;
-  const rowStartX = 40;
-
-  for (const folder of folderNames) {
-    const files = byFolder.get(folder).sort((a, b) => a.name.localeCompare(b.name));
-    const collapsed = collapsedFolders.has(folder);
-
-    let width, height;
-    if (collapsed) {
-      width = COLLAPSED_W;
-      height = COLLAPSED_H;
-    } else {
-      const rows = Math.ceil(files.length / FILES_PER_ROW);
-      width = FOLDER_PAD * 2 + FILES_PER_ROW * FILE_W + (FILES_PER_ROW - 1) * FILE_GAP;
-      height = FOLDER_HEADER + FOLDER_PAD + rows * FILE_H + (rows - 1) * FILE_GAP + FOLDER_PAD;
-    }
-
-    if (col >= FOLDERS_PER_ROW) {
-      col = 0;
-      row += 1;
-      cursorY += rowMaxHeight + FOLDER_GAP_Y;
-      cursorX = rowStartX;
-      rowMaxHeight = 0;
-    }
-
-    const folderId = `folder:${folder}`;
-    nodes.push({
-      id: folderId,
-      type: "folderGroup",
-      position: { x: cursorX, y: cursorY },
-      data: { folder, count: files.length, collapsed },
-      style: { width, height },
-      draggable: true,
-    });
-
-    if (collapsed) {
-      idToRenderedId.set(folder, folderId);
-      for (const f of files) idToRenderedId.set(f.path, folderId);
-    } else {
-      files.forEach((f, i) => {
-        const r = Math.floor(i / FILES_PER_ROW);
-        const c = i % FILES_PER_ROW;
-        const dimmed = riskFilter && f.risk && f.risk.bucket !== riskFilter;
-        nodes.push({
-          id: f.path,
-          type: "fileNode",
-          parentNode: folderId,
-          extent: "parent",
-          position: {
-            x: FOLDER_PAD + c * (FILE_W + FILE_GAP),
-            y: FOLDER_HEADER + FOLDER_PAD + r * (FILE_H + FILE_GAP),
-          },
-          data: { node: f, heatmapOn, dimmed },
-          draggable: true,
+  function getOrCreateDir(container, segments, prefix) {
+    let cur = container;
+    let curPath = prefix;
+    for (const seg of segments) {
+      curPath = curPath ? `${curPath}/${seg}` : seg;
+      if (!cur.childrenMap.has(curPath)) {
+        cur.childrenMap.set(curPath, {
+          path: curPath,
+          name: seg,
+          childrenMap: new Map(),
+          files: [],
         });
-        idToRenderedId.set(f.path, f.path);
-      });
+      }
+      cur = cur.childrenMap.get(curPath);
     }
-
-    cursorX += width + FOLDER_GAP_X;
-    rowMaxHeight = Math.max(rowMaxHeight, height);
-    col += 1;
+    return cur;
   }
 
-  const edgeSeen = new Set();
-  const edges = [];
-  for (const e of graph.edges) {
-    const source = idToRenderedId.get(e.source);
-    const target = idToRenderedId.get(e.target);
-    if (!source || !target || source === target) continue;
-    const key = `${source}->${target}`;
-    if (edgeSeen.has(key)) continue;
-    edgeSeen.add(key);
-    edges.push({
-      id: key,
-      source,
-      target,
-      animated: false,
+  for (const f of graph.nodes) {
+    const folder = f.folder === "/" ? "" : f.folder;
+    const segments = folder ? folder.split("/") : [];
+    const dir = getOrCreateDir(root, segments, "");
+    dir.files.push(f);
+  }
+
+  // Recursively compute each directory's total file count (for the badge
+  // shown on collapsed folders).
+  function countFiles(dir) {
+    let total = dir.files.length;
+    for (const child of dir.childrenMap.values()) total += countFiles(child);
+    dir.fileCount = total;
+    return total;
+  }
+  countFiles(root);
+
+  return root;
+}
+
+function childrenOf(dir) {
+  const subdirs = [...dir.childrenMap.values()].sort((a, b) => a.name.localeCompare(b.name));
+  const files = [...dir.files].sort((a, b) => a.name.localeCompare(b.name));
+  return [...subdirs, ...files];
+}
+
+function isFileEntry(entry) {
+  return !entry.childrenMap; // dirs have childrenMap, files don't
+}
+
+/**
+ * Recursively position one tree node and its (visible) descendants.
+ * Returns { id, top, bottom } describing the vertical span it occupies,
+ * so the caller can stack siblings without overlap.
+ */
+function layoutNode(entry, depth, y, ctx, out) {
+  const isFile = isFileEntry(entry);
+  const id = isFile ? entry.path : `folder:${entry.path}`;
+  const x = START_X + depth * COL_WIDTH;
+
+  if (isFile) {
+    const dimmed = ctx.riskFilter && entry.risk && entry.risk.bucket !== ctx.riskFilter;
+    out.nodes.push({
+      id,
+      type: "fileNode",
+      position: { x, y },
+      data: { node: entry, heatmapOn: ctx.heatmapOn, dimmed },
+    });
+    return { id, top: y, bottom: y + FILE_H };
+  }
+
+  const collapsed = ctx.collapsedFolders.has(entry.path);
+  const kids = childrenOf(entry);
+  const canExpand = kids.length > 0;
+
+  if (collapsed || !canExpand) {
+    out.nodes.push({
+      id,
+      type: "folderGroup",
+      position: { x, y },
+      data: {
+        key: entry.path,
+        label: entry.path === "__root__" ? entry.name : entry.name,
+        count: entry.fileCount,
+        collapsed: canExpand ? true : null, // null = nothing to expand
+        isRoot: entry.path === "__root__",
+      },
+      style: { width: DIR_W, height: DIR_H },
+    });
+    return { id, top: y, bottom: y + DIR_H };
+  }
+
+  // Expanded: lay out children stacked vertically, then center this
+  // folder's own box against the span its children occupy.
+  let cursorY = y;
+  const childRefs = [];
+  for (const kid of kids) {
+    const ref = layoutNode(kid, depth + 1, cursorY, ctx, out);
+    childRefs.push(ref);
+    cursorY = ref.bottom + GAP_Y;
+  }
+  const bottom = cursorY - GAP_Y;
+  const spanCenter = (y + bottom) / 2;
+  const ownY = spanCenter - DIR_H / 2;
+
+  out.nodes.push({
+    id,
+    type: "folderGroup",
+    position: { x, y: ownY },
+    data: {
+      key: entry.path,
+      label: entry.name,
+      count: entry.fileCount,
+      collapsed: false,
+      isRoot: entry.path === "__root__",
+    },
+    style: { width: DIR_W, height: DIR_H },
+  });
+
+  for (const ref of childRefs) {
+    out.edges.push({
+      id: `${id}->${ref.id}`,
+      source: id,
+      target: ref.id,
       style: { stroke: "#242B38", strokeWidth: 1.5 },
       markerEnd: { type: "arrowclosed", color: "#242B38", width: 14, height: 14 },
     });
   }
 
-  return { nodes, edges };
+  return { id, top: Math.min(y, ownY), bottom: Math.max(bottom, ownY + DIR_H) };
+}
+
+export function buildGraphElements(graph, { collapsedFolders, heatmapOn, riskFilter }) {
+  if (!graph.nodes.length) return { nodes: [], edges: [] };
+
+  const tree = buildTree(graph);
+  const out = { nodes: [], edges: [] };
+  layoutNode(tree, 0, START_Y, { collapsedFolders, heatmapOn, riskFilter }, out);
+  return out;
 }
