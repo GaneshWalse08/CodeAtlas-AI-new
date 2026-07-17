@@ -1,10 +1,11 @@
 // A tiny, dependency-free formatter for the light markdown Claude's chat
-// answers use (bold text, bullet lists, numbered lists, paragraphs).
-// Deliberately not a full markdown parser - just enough to make chat
-// answers readable instead of showing raw "**" and "1." characters.
+// answers - and real repo READMEs - use: bold text, inline code, fenced
+// code blocks, headings, and bullet/numbered lists. Deliberately not a full
+// markdown parser (no images/tables/link-titles) - just enough to make
+// both chat answers and READMEs readable without adding a new dependency.
 
 function renderInline(text, keyPrefix) {
-  const parts = text.split(/(\*\*[^*]+\*\*)/g).filter(Boolean);
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return (
@@ -13,9 +14,25 @@ function renderInline(text, keyPrefix) {
         </strong>
       );
     }
+    if (part.startsWith("`") && part.endsWith("`") && part.length > 1) {
+      return (
+        <code
+          key={`${keyPrefix}-${i}`}
+          className="font-mono text-[0.85em] bg-bg border border-border rounded px-1 py-0.5"
+        >
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
     return <span key={`${keyPrefix}-${i}`}>{part}</span>;
   });
 }
+
+const HEADING_SIZES = {
+  1: "text-lg font-semibold mt-1",
+  2: "text-base font-semibold mt-1",
+  3: "text-sm font-semibold uppercase tracking-wide text-text-secondary mt-1",
+};
 
 export default function MarkdownLite({ text }) {
   const lines = text.split("\n");
@@ -24,6 +41,37 @@ export default function MarkdownLite({ text }) {
 
   while (i < lines.length) {
     const line = lines[i];
+
+    if (/^```/.test(line.trim())) {
+      i++;
+      const codeLines = [];
+      while (i < lines.length && !/^```/.test(lines[i].trim())) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++; // skip closing fence
+      blocks.push(
+        <pre
+          key={blocks.length}
+          className="bg-bg border border-border rounded-btn px-3 py-2 overflow-x-auto text-xs font-mono text-text-primary"
+        >
+          {codeLines.join("\n")}
+        </pre>
+      );
+      continue;
+    }
+
+    const headingMatch = line.match(/^(#{1,3})\s+(.*)/);
+    if (headingMatch) {
+      const level = headingMatch[1].length;
+      blocks.push(
+        <p key={blocks.length} className={HEADING_SIZES[level] || HEADING_SIZES[3]}>
+          {renderInline(headingMatch[2], `${blocks.length}`)}
+        </p>
+      );
+      i++;
+      continue;
+    }
 
     if (/^\s*[-*]\s+/.test(line)) {
       const items = [];
@@ -63,7 +111,14 @@ export default function MarkdownLite({ text }) {
     }
 
     const paraLines = [];
-    while (i < lines.length && lines[i].trim() !== "" && !/^\s*[-*]\s+/.test(lines[i]) && !/^\s*\d+\.\s+/.test(lines[i])) {
+    while (
+      i < lines.length &&
+      lines[i].trim() !== "" &&
+      !/^\s*[-*]\s+/.test(lines[i]) &&
+      !/^\s*\d+\.\s+/.test(lines[i]) &&
+      !/^#{1,3}\s+/.test(lines[i]) &&
+      !/^```/.test(lines[i].trim())
+    ) {
       paraLines.push(lines[i]);
       i++;
     }

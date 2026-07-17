@@ -173,7 +173,36 @@ export async function answerRepoQuestion({ question, contextFiles, history, maxT
   }
 }
 
-const RISK_EXPLANATION_SYSTEM = `Given a file's change frequency, whether it has tests, and its risk bucket (low/medium/high), write ONE short sentence (under 20 words) explaining why it landed in that bucket. Be concrete, e.g. "Changed 23 times in the last 3 months, no test file found." Respond with just the sentence, nothing else.`;
+const PROJECT_OVERVIEW_SYSTEM = `You are writing a short orientation for a developer opening a GitHub repository for the first time. You'll be given the README (if any), a list of detected languages/dependencies, and a sample of per-file summaries from the repo. Write a plain-English overview: what the project is, what it does, and how it's put together. Ground it in the material given - do not invent features that aren't evidenced by the README, dependencies, or file summaries.
+
+Respond ONLY with a JSON object:
+{"summary": "<2-4 sentence plain-English overview of what this project is and does>", "techStack": ["<short tech/framework name>", ...]}
+"techStack" should list the concrete technologies/frameworks you can actually identify (e.g. "React", "Express", "PostgreSQL"), most important first, capped at 10. Return nothing else - no markdown fences.`;
+
+export async function generateProjectOverview({ readme, languages, dependencies, fileSummaries }) {
+  const prompt = `README:\n${readme ? readme.slice(0, 6000) : "(no README found)"}\n\nDetected languages: ${
+    languages.map((l) => `${l.name} (${l.percent}%)`).join(", ") || "unknown"
+  }\n\nDetected dependencies: ${dependencies.join(", ") || "none detected"}\n\nSample file summaries:\n${fileSummaries
+    .slice(0, 40)
+    .map((f) => `- ${f.path}: ${f.summary}`)
+    .join("\n")}`;
+
+  const text = await callClaude({
+    system: PROJECT_OVERVIEW_SYSTEM,
+    messages: [{ role: "user", content: prompt }],
+    maxTokens: 700,
+  });
+
+  try {
+    const parsed = extractJson(text);
+    return {
+      summary: parsed.summary || "Summary unavailable.",
+      techStack: Array.isArray(parsed.techStack) ? parsed.techStack.slice(0, 10) : [],
+    };
+  } catch {
+    return { summary: text, techStack: [] };
+  }
+}
 
 export async function explainRisk({ path, changeCount, hasTests, bucket }) {
   try {

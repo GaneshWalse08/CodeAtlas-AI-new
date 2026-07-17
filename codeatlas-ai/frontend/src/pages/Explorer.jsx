@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useStore } from "../store/useStore.js";
 import TopBar from "../components/TopBar.jsx";
+import Sidebar from "../components/Sidebar.jsx";
 import Graph from "../components/Graph.jsx";
 import SidePanel from "../components/SidePanel.jsx";
 import ChatDrawer from "../components/ChatDrawer.jsx";
+import ExploreProjectModal from "../components/ExploreProjectModal.jsx";
 
 export default function Explorer() {
   const graph = useStore((s) => s.graph);
@@ -23,11 +25,13 @@ export default function Explorer() {
       )}
 
       <div className="flex-1 flex min-h-0">
+        <Sidebar />
         <Graph riskFilter={riskFilter} />
         {selectedPath && <SidePanel />}
       </div>
 
       <ChatDrawer />
+      <ExploreProjectModal />
     </div>
   );
 }

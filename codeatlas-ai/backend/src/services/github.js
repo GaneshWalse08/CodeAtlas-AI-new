@@ -134,3 +134,56 @@ export async function getCommitCountForPath(owner, repo, path, since) {
     return 0;
   }
 }
+
+/** Fetches the repo's rendered-default README via GitHub's dedicated readme
+ * endpoint (handles README.md / README.rst / no-extension / casing for us).
+ * Returns null if the repo has no README. */
+export async function getReadme(owner, repo, sha) {
+  try {
+    const res = await fetch(
+      `${GITHUB_API}/repos/${owner}/${repo}/readme?ref=${encodeURIComponent(sha)}`,
+      { headers: authHeaders() }
+    );
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data.content) return null;
+    const content = Buffer.from(data.content, data.encoding || "base64").toString("utf-8");
+    return { path: data.path, content };
+  } catch {
+    return null;
+  }
+}
+
+/** Byte-count per language, as reported by GitHub's linguist analysis. */
+export async function getLanguages(owner, repo) {
+  try {
+    const data = await ghFetch(`/repos/${owner}/${repo}/languages`);
+    const total = Object.values(data).reduce((a, b) => a + b, 0) || 1;
+    return Object.entries(data)
+      .map(([name, bytes]) => ({ name, percent: Math.round((bytes / total) * 100) }))
+      .sort((a, b) => b.percent - a.percent);
+  } catch {
+    return [];
+  }
+}
+
+/** Recent commit log with author info, used for the "recent changes" and
+ * "recent contributions" views. */
+export async function getRecentCommits(owner, repo, sha, limit = 12) {
+  try {
+    const data = await ghFetch(
+      `/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(sha)}&per_page=${limit}`
+    );
+    return data.map((c) => ({
+      sha: c.sha.slice(0, 7),
+      message: (c.commit?.message || "").split("\n")[0],
+      authorName: c.commit?.author?.name || c.author?.login || "Unknown",
+      authorLogin: c.author?.login || null,
+      avatarUrl: c.author?.avatar_url || null,
+      date: c.commit?.author?.date || null,
+      url: c.html_url,
+    }));
+  } catch {
+    return [];
+  }
+}

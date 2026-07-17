@@ -74,6 +74,13 @@ function emitCaption(job, caption) {
   job.emitter.emit("event", { type: "caption", caption });
 }
 
+/** allRepoPaths is only needed server-side (manifest lookup for the project
+ * overview) - never send it down to the browser. */
+function stripForClient(graph) {
+  const { allRepoPaths, ...clientGraph } = graph;
+  return clientGraph;
+}
+
 async function runPipeline(job, owner, repo) {
   try {
     emitStage(job, "fetching", "active");
@@ -86,7 +93,7 @@ async function runPipeline(job, owner, repo) {
       for (const s of STAGES) emitStage(job, s, "done");
       job.result = cached;
       job.status = "done";
-      job.emitter.emit("event", { type: "done", graph: cached });
+      job.emitter.emit("event", { type: "done", graph: stripForClient(cached) });
       return;
     }
 
@@ -183,12 +190,16 @@ async function runPipeline(job, owner, repo) {
       edges,
       folders: [...folders.keys()],
       contentByPath: Object.fromEntries(contentByPath),
+      // Full repo path list (not just source files) - used server-side to
+      // locate manifest files (package.json etc.) for the project overview.
+      // Stripped before sending to the client - see stripForClient().
+      allRepoPaths: fullTree.map((f) => f.path),
     };
 
     repoCache.set(key, graph);
     job.result = graph;
     job.status = "done";
-    job.emitter.emit("event", { type: "done", graph });
+    job.emitter.emit("event", { type: "done", graph: stripForClient(graph) });
   } catch (err) {
     job.status = "error";
     job.error = err.message;
@@ -256,7 +267,7 @@ router.get("/repo/:jobId", (req, res) => {
   if (!job) return res.status(404).json({ error: "Job not found." });
   if (job.status === "error") return res.status(500).json({ error: job.error });
   if (job.status !== "done") return res.status(202).json({ status: job.status });
-  res.json(job.result);
+  res.json(stripForClient(job.result));
 });
 
 export default router;

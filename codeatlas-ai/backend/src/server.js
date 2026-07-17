@@ -4,6 +4,7 @@ import cors from "cors";
 import analyzeRouter from "./routes/analyze.js";
 import chatRouter from "./routes/chat.js";
 import fileRouter from "./routes/file.js";
+import overviewRouter from "./routes/overview.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -23,6 +24,7 @@ app.get("/api/health", (_req, res) => {
 app.use("/api", analyzeRouter);
 app.use("/api", chatRouter);
 app.use("/api", fileRouter);
+app.use("/api", overviewRouter);
 
 // Centralized fallback - never let an unhandled error return a raw/blank response.
 app.use((err, _req, res, _next) => {

@@ -26,6 +26,20 @@ export const useStore = create((set, get) => ({
   chatOpen: false,
   chatMessages: [], // { role, content, sources? }
 
+  sidebarCollapsed: false,
+  exploreOpen: false,
+  exploreData: null,
+  exploreLoading: false,
+  exploreError: null,
+
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+
+  openExplore: () => set({ exploreOpen: true }),
+  closeExplore: () => set({ exploreOpen: false }),
+  setExploreLoading: (v) => set({ exploreLoading: v }),
+  setExploreData: (data) => set({ exploreData: data, exploreLoading: false, exploreError: null }),
+  setExploreError: (msg) => set({ exploreError: msg, exploreLoading: false }),
+
   sessionViewedFiles: new Set(),
   sessionQuestionCount: 0,
 
@@ -46,6 +60,10 @@ export const useStore = create((set, get) => ({
       },
       sessionViewedFiles: new Set(),
       sessionQuestionCount: 0,
+      exploreOpen: false,
+      exploreData: null,
+      exploreLoading: false,
+      exploreError: null,
     }),
 
   startAnalysis: (url, owner, repo) =>

@@ -65,6 +65,15 @@ export async function fetchFileDetail(jobId, path) {
   return res.json();
 }
 
+export async function fetchProjectOverview(jobId) {
+  const res = await fetch(`${API_BASE}/project-overview?jobId=${encodeURIComponent(jobId)}`);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Failed to load project overview.");
+  }
+  return res.json();
+}
+
 export async function askChat(jobId, question, history) {
   const res = await fetch(`${API_BASE}/chat`, {
     method: "POST",
