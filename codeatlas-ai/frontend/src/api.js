@@ -1,5 +1,18 @@
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:4000/api";
 
+export async function fetchSharedAnalysis(owner, repo) {
+  const res = await fetch(
+    `${API_BASE}/shared?owner=${encodeURIComponent(owner)}&repo=${encodeURIComponent(repo)}`
+  );
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || "No shared analysis found.");
+    err.notFound = res.status === 404;
+    throw err;
+  }
+  return res.json(); // { jobId, graph }
+}
+
 export async function fetchExamples() {
   const res = await fetch(`${API_BASE}/examples`);
   if (!res.ok) throw new Error("Failed to load example repos.");
