@@ -55,7 +55,7 @@ export default function TopBar({ riskFilter, setRiskFilter }) {
         <span className="font-mono text-sm text-text-primary truncate">
           {graph.owner}/{graph.repo}
         </span>
-        
+        <a
           href={`https://github.com/${graph.owner}/${graph.repo}`}
           target="_blank"
           rel="noreferrer"
