@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { GitBranch, ArrowRight, Github, Loader2 } from "lucide-react";
+import { GitBranch, ArrowRight, Github, Loader2, Linkedin } from "lucide-react";
 import { useStore } from "../store/useStore.js";
 import { fetchExamples, startAnalyze } from "../api.js";
 
@@ -118,30 +118,104 @@ export default function Landing() {
         </div>
       </main>
 
-      <footer className="relative px-6 py-6 text-center text-xs text-text-secondary">
-        <p>
-          CodeMap AI fetches a repo's file tree, extracts import relationships,
-          and asks Claude to summarize and answer questions about each file —
-          grounded in the actual code, not guesses.
+      <footer className="relative border-t border-border px-6 py-10">
+  <div className="max-w-3xl mx-auto flex flex-col gap-8">
+    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
+      <div className="flex flex-col gap-3 max-w-xs">
+        <div className="flex items-center gap-2">
+          <GitBranch size={18} className="text-accent" />
+          <span className="font-semibold text-sm text-text-primary">CodeMap AI</span>
+        </div>
+        <p className="text-xs text-text-secondary leading-relaxed">
+          Fetches a repo's file tree, extracts import relationships, and
+          asks Claude to summarize and answer questions about each file
+          — grounded in the actual code, not guesses.
         </p>
-        <p className="mt-2">
+      </div>
+
+      <div className="flex gap-10 sm:gap-14">
+        <div className="flex flex-col gap-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
+            Project
+          </span>
+
           <a
-            href="https://github.com"
-            className="underline hover:text-text-primary"
+            href="https://github.com/GaneshWalse08/CodeAtlas-AI-new"
+            target="_blank"
+            rel="noreferrer"
+            className="text-xs text-text-secondary hover:text-accent transition-colors"
           >
             View source
           </a>
-          {" · "}
-          Made by{" "}
-          <a href="#" className="underline hover:text-text-primary">
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
+            Made by
+          </span>
+
+          <a
+            href="https://www.linkedin.com/in/ganeshwalse/"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+          >
+            <Linkedin size={12} />
             Ganesh Walse
-          </a>{" "}
-          and{" "}
-          <a href="#" className="underline hover:text-text-primary">
+          </a>
+
+          <a
+            href="https://www.linkedin.com/in/anagha-waghmare-8b22bb334/"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+          >
+            <Linkedin size={12} />
             Anagha Waghmare
           </a>
-        </p>
-      </footer>
+        </div>
+      </div>
+    </div>
+
+    <div className="border-t border-border pt-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
+      <p className="text-[11px] text-text-disabled">
+        © {new Date().getFullYear()} CodeMap AI. All rights reserved.
+      </p>
+
+      <div className="flex items-center gap-2.5">
+        <a
+          href="https://github.com/GaneshWalse08/CodeAtlas-AI-new"
+          target="_blank"
+          rel="noreferrer"
+          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
+          title="View source on GitHub"
+        >
+          <Github size={13} />
+        </a>
+
+        <a
+          href="https://www.linkedin.com/in/ganeshwalse/"
+          target="_blank"
+          rel="noreferrer"
+          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
+          title="Ganesh Walse on LinkedIn"
+        >
+          <Linkedin size={13} />
+        </a>
+
+        <a
+          href="https://www.linkedin.com/in/anagha-waghmare-8b22bb334/"
+          target="_blank"
+          rel="noreferrer"
+          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
+          title="Anagha Waghmare on LinkedIn"
+        >
+          <Linkedin size={13} />
+        </a>
+      </div>
+    </div>
+  </div>
+</footer>
     </div>
   );
 }
