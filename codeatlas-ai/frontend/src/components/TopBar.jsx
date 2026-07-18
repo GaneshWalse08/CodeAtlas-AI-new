@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { GitBranch, Github, Search, RotateCcw } from "lucide-react";
+import { GitBranch, Github, Search, RotateCcw, Link2, Check } from "lucide-react";
 import { useStore } from "../store/useStore.js";
 
 const LEGEND = [
@@ -17,6 +17,13 @@ export default function TopBar({ riskFilter, setRiskFilter }) {
   const selectFile = useStore((s) => s.selectFile);
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const [linkCopied, setLinkCopied] = useState(false);
+
+  function copyShareLink() {
+    navigator.clipboard?.writeText(window.location.href);
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 1500);
+  }
 
   function onSearchChange(v) {
     setQuery(v);
@@ -118,6 +125,24 @@ export default function TopBar({ riskFilter, setRiskFilter }) {
           ))}
         </div>
       )}
+
+      <button
+        onClick={copyShareLink}
+        className="flex items-center gap-1.5 text-xs border border-border rounded-btn px-3 py-1.5 text-text-secondary hover:bg-surface-elevated hover:text-text-primary transition-colors shrink-0"
+        title="Copy a link a teammate can open directly - no re-analysis needed"
+      >
+        {linkCopied ? (
+          <>
+            <Check size={12} className="text-risk-low" />
+            <span className="text-risk-low">Copied</span>
+          </>
+        ) : (
+          <>
+            <Link2 size={12} />
+            Copy link
+          </>
+        )}
+      </button>
 
       <button
         onClick={goToLanding}

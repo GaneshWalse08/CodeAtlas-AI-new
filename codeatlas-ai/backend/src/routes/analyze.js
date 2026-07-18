@@ -16,6 +16,7 @@ import { summarizeFilesBatch, explainRisk } from "../services/claude.js";
 import { computeRiskBucket } from "../services/risk.js";
 import { repoCache, jobs, repoKey } from "../services/cache.js";
 import { EXAMPLE_REPOS } from "../services/examples.js";
+import { saveAnalysis, loadBySha } from "../services/store.js";
 
 const router = express.Router();
 
@@ -97,6 +98,20 @@ async function runPipeline(job, owner, repo) {
       job.result = cached;
       job.status = "done";
       job.emitter.emit("event", { type: "done", graph: stripForClient(cached) });
+      return;
+    }
+
+    // In-memory cache is empty (e.g. the server restarted), but this exact
+    // commit may already be saved to disk from an earlier run - reuse it
+    // instead of re-spending API calls and wait time.
+    const persisted = await loadBySha(owner, repo, sha);
+    if (persisted?.graph) {
+      repoCache.set(key, persisted.graph);
+      for (const s of STAGES) emitStage(job, s, "done");
+      job.result = persisted.graph;
+      job.overview = persisted.overview || undefined;
+      job.status = "done";
+      job.emitter.emit("event", { type: "done", graph: stripForClient(persisted.graph) });
       return;
     }
 
@@ -217,6 +232,7 @@ async function runPipeline(job, owner, repo) {
     };
 
     repoCache.set(key, graph);
+    await saveAnalysis(graph);
     job.result = graph;
     job.status = "done";
     job.emitter.emit("event", { type: "done", graph: stripForClient(graph) });

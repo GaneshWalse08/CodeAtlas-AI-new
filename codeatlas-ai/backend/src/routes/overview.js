@@ -3,6 +3,7 @@ import { jobs } from "../services/cache.js";
 import { getReadme, getLanguages, getRecentCommits, getRawFileContent } from "../services/github.js";
 import { findManifestPaths, parseManifest } from "../services/manifest.js";
 import { generateProjectOverview } from "../services/claude.js";
+import { saveOverview } from "../services/store.js";
 
 const router = express.Router();
 
@@ -83,6 +84,7 @@ router.get("/project-overview", async (req, res) => {
     };
 
     job.overview = overview;
+    await saveOverview(owner, repo, sha, overview);
     res.json(overview);
   } catch (err) {
     res.status(500).json({ error: err.message });
