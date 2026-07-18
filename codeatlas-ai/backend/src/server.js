@@ -5,6 +5,7 @@ import analyzeRouter from "./routes/analyze.js";
 import chatRouter from "./routes/chat.js";
 import fileRouter from "./routes/file.js";
 import overviewRouter from "./routes/overview.js";
+import sharedRouter from "./routes/shared.js";
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -25,6 +26,7 @@ app.use("/api", analyzeRouter);
 app.use("/api", chatRouter);
 app.use("/api", fileRouter);
 app.use("/api", overviewRouter);
+app.use("/api", sharedRouter);
 
 // Centralized fallback - never let an unhandled error return a raw/blank response.
 app.use((err, _req, res, _next) => {

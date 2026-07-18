@@ -20,7 +20,9 @@ export default function TopBar({ riskFilter, setRiskFilter }) {
   const [linkCopied, setLinkCopied] = useState(false);
 
   function copyShareLink() {
-    navigator.clipboard?.writeText(window.location.href);
+    const url = new URL(window.location.origin + window.location.pathname);
+    url.searchParams.set("repo", `${graph.owner}/${graph.repo}`);
+    navigator.clipboard?.writeText(url.toString());
     setLinkCopied(true);
     setTimeout(() => setLinkCopied(false), 1500);
   }

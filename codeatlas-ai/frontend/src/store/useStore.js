@@ -44,26 +44,33 @@ export const useStore = create((set, get) => ({
   sessionQuestionCount: 0,
 
   goToLanding: () =>
-    set({
-      screen: "landing",
-      graph: null,
-      selectedPath: null,
-      chatOpen: false,
-      chatMessages: [],
-      loadError: null,
-      jobId: null,
-      stages: {
-        fetching: "pending",
-        structure: "pending",
-        summaries: "pending",
-        risk: "pending",
-      },
-      sessionViewedFiles: new Set(),
-      sessionQuestionCount: 0,
-      exploreOpen: false,
-      exploreData: null,
-      exploreLoading: false,
-      exploreError: null,
+    set((s) => {
+      if (typeof window !== "undefined") {
+        const url = new URL(window.location.href);
+        url.searchParams.delete("repo");
+        window.history.replaceState({}, "", url.toString());
+      }
+      return {
+        screen: "landing",
+        graph: null,
+        selectedPath: null,
+        chatOpen: false,
+        chatMessages: [],
+        loadError: null,
+        jobId: null,
+        stages: {
+          fetching: "pending",
+          structure: "pending",
+          summaries: "pending",
+          risk: "pending",
+        },
+        sessionViewedFiles: new Set(),
+        sessionQuestionCount: 0,
+        exploreOpen: false,
+        exploreData: null,
+        exploreLoading: false,
+        exploreError: null,
+      };
     }),
 
   startAnalysis: (url, owner, repo) =>
@@ -99,6 +106,14 @@ export const useStore = create((set, get) => ({
       [...counts.entries()].filter(([, c]) => c > 6).map(([f]) => f)
     );
     set({ graph, screen: "explorer", collapsedFolders: collapsed });
+
+    // Reflect the repo in the URL so the address bar itself is a shareable
+    // link - copying it later hits /api/shared instead of re-analyzing.
+    if (typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("repo", `${graph.owner}/${graph.repo}`);
+      window.history.replaceState({}, "", url.toString());
+    }
   },
 
   toggleFolder: (folder) =>
