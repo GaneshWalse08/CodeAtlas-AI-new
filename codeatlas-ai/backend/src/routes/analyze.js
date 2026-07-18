@@ -8,7 +8,7 @@ import {
   getFileTree,
   isRelevantSourceFile,
   getRawFileContent,
-  getCommitCountForPath,
+  getRecentChangeFrequency,
   GitHubError,
 } from "../services/github.js";
 import { extractImports, hasMatchingTest, groupByFolder } from "../services/parser.js";
@@ -20,8 +20,11 @@ import { EXAMPLE_REPOS } from "../services/examples.js";
 const router = express.Router();
 
 const MAX_FILES = 300;
-const SUMMARY_BATCH_SIZE = 5;
-const CONCURRENCY = 8;
+const SUMMARY_BATCH_SIZE = 8;
+const FETCH_CONCURRENCY = 16;
+const SUMMARY_CONCURRENCY = 8;
+const RISK_COMMIT_SAMPLE = 150; // fixed sample size - independent of repo file count
+const RISK_COMMIT_CONCURRENCY = 15;
 
 router.get("/examples", (_req, res) => {
   res.json(EXAMPLE_REPOS);
@@ -108,7 +111,7 @@ async function runPipeline(job, owner, repo) {
 
     // --- Stage 2: structure / dependency extraction ---
     emitStage(job, "structure", "active");
-    const contents = await mapWithConcurrency(files, CONCURRENCY, async (f) => {
+    const contents = await mapWithConcurrency(files, FETCH_CONCURRENCY, async (f) => {
       const content = await getRawFileContent(owner, repo, sha, f.path);
       return { path: f.path, content: content || "" };
     });
@@ -121,46 +124,63 @@ async function runPipeline(job, owner, repo) {
       for (const t of targets) edges.push({ source: path, target: t });
     }
     emitStage(job, "structure", "done", { edgeCount: edges.length });
+    emitCaption(job, "Parsed import relationships between files");
+
+    // --- Stages 3 & 4: AI summaries and risk scoring, run in parallel -
+    // they hit completely unrelated services (Claude vs. GitHub), so there's
+    // no reason to make one wait on the other. This roughly halves total
+    // time on large repos compared to running them back-to-back.
+    emitStage(job, "summaries", "active");
+    emitStage(job, "risk", "active");
     emitCaption(job, "Larger repos can take up to 30 seconds");
 
-    // --- Stage 3: AI summaries (batched) ---
-    emitStage(job, "summaries", "active");
-    const summaries = new Map();
-    const batches = [];
-    for (let i = 0; i < contents.length; i += SUMMARY_BATCH_SIZE) {
-      batches.push(contents.slice(i, i + SUMMARY_BATCH_SIZE));
-    }
-    await mapWithConcurrency(batches, 3, async (batch) => {
-      const nonEmpty = batch.filter((b) => b.content);
-      if (nonEmpty.length === 0) return;
-      try {
-        const result = await summarizeFilesBatch(nonEmpty);
-        for (const [p, s] of result) summaries.set(p, s);
-      } catch (e) {
-        console.error(
-          `[analyze] summary batch failed for [${nonEmpty.map((b) => b.path).join(", ")}]:`,
-          e.message
-        );
-        for (const b of nonEmpty) summaries.set(b.path, "Summary unavailable (AI request failed).");
+    const summariesPromise = (async () => {
+      const summaries = new Map();
+      const batches = [];
+      for (let i = 0; i < contents.length; i += SUMMARY_BATCH_SIZE) {
+        batches.push(contents.slice(i, i + SUMMARY_BATCH_SIZE));
       }
-    });
-    emitStage(job, "summaries", "done");
-    emitCaption(job, "Still working - parsing dependencies");
+      await mapWithConcurrency(batches, SUMMARY_CONCURRENCY, async (batch) => {
+        const nonEmpty = batch.filter((b) => b.content);
+        if (nonEmpty.length === 0) return;
+        try {
+          const result = await summarizeFilesBatch(nonEmpty);
+          for (const [p, s] of result) summaries.set(p, s);
+        } catch (e) {
+          console.error(
+            `[analyze] summary batch failed for [${nonEmpty.map((b) => b.path).join(", ")}]:`,
+            e.message
+          );
+          for (const b of nonEmpty) summaries.set(b.path, "Summary unavailable (AI request failed).");
+        }
+      });
+      emitStage(job, "summaries", "done");
+      return summaries;
+    })();
 
-    // --- Stage 4: risk scoring ---
-    emitStage(job, "risk", "active");
-    const changeCounts = await mapWithConcurrency(files, 4, async (f) => {
-      const count = await getCommitCountForPath(owner, repo, f.path);
-      return { path: f.path, count };
-    });
-    const maxChange = Math.max(1, ...changeCounts.map((c) => c.count));
-    const riskByPath = new Map();
-    for (const { path, count } of changeCounts) {
-      const tests = hasMatchingTest(path, allPaths);
-      const { score, bucket } = computeRiskBucket(count, tests, maxChange);
-      riskByPath.set(path, { changeCount: count, hasTests: tests, score, bucket });
-    }
-    emitStage(job, "risk", "done");
+    const riskPromise = (async () => {
+      // One fixed-size sample of recent commits, not one request per file -
+      // this is what actually makes risk-scoring fast on large repos.
+      const changeFreq = await getRecentChangeFrequency(
+        owner,
+        repo,
+        sha,
+        RISK_COMMIT_SAMPLE,
+        RISK_COMMIT_CONCURRENCY
+      );
+      const counts = files.map((f) => changeFreq.get(f.path) || 0);
+      const maxChange = Math.max(1, ...counts);
+      const riskByPath = new Map();
+      files.forEach((f, idx) => {
+        const tests = hasMatchingTest(f.path, allPaths);
+        const { score, bucket } = computeRiskBucket(counts[idx], tests, maxChange);
+        riskByPath.set(f.path, { changeCount: counts[idx], hasTests: tests, score, bucket });
+      });
+      emitStage(job, "risk", "done");
+      return riskByPath;
+    })();
+
+    const [summaries, riskByPath] = await Promise.all([summariesPromise, riskPromise]);
 
     // --- Assemble graph payload ---
     const folders = groupByFolder(allPaths);
@@ -241,7 +261,7 @@ router.get("/analyze/:jobId/stream", (req, res) => {
 
   // Replay current status immediately in case client subscribed late.
   if (job.status === "done") {
-    send({ type: "done", graph: job.result });
+    send({ type: "done", graph: stripForClient(job.result) });
     return res.end();
   }
   if (job.status === "error") {

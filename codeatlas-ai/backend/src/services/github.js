@@ -109,30 +109,93 @@ export async function getRawFileContent(owner, repo, sha, path) {
   return res.text();
 }
 
-/** Number of commits touching a given path (capped at `perPage` for speed). */
-export async function getCommitCountForPath(owner, repo, path, since) {
+/** Number of commits touching a given path (capped at `perPage`, and
+ * bounded to a recent time window). Kept for reference/reuse, but the
+ * analysis pipeline uses getRecentChangeFrequency() instead - see below
+ * for why. */
+export async function getCommitCountForPath(owner, repo, path, since, timeoutMs = 8000) {
   const params = new URLSearchParams({
     path,
     per_page: "100",
   });
   if (since) params.set("since", since);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(
       `${GITHUB_API}/repos/${owner}/${repo}/commits?${params.toString()}`,
-      { headers: authHeaders() }
+      { headers: authHeaders(), signal: controller.signal }
     );
     if (!res.ok) return 0;
     const link = res.headers.get("link");
     const data = await res.json();
-    // If there's a "last" page link, estimate from it; else count directly.
     if (link && link.includes('rel="last"')) {
       const m = link.match(/[?&]page=(\d+)>; rel="last"/);
-      if (m) return parseInt(m[1], 10) * 100; // rough upper-bound estimate
+      if (m) return parseInt(m[1], 10) * 100;
     }
     return Array.isArray(data) ? data.length : 0;
   } catch {
     return 0;
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/**
+ * Builds a repo-wide "how often was this file touched recently" map from a
+ * fixed sample of the most recent commits, instead of asking GitHub
+ * "how many commits touched this exact file" once per file.
+ *
+ * Why: a per-path history query (getCommitCountForPath above) requires
+ * GitHub to walk commit history filtered by path, which is slow and gets
+ * slower the longer the repo's history is - and doing it once per file
+ * means the risk-scoring stage's total time scales with file count, which
+ * is exactly what made large repos slow to analyze.
+ *
+ * Looking up a specific commit by SHA, by contrast, is a fast direct
+ * lookup with no history walk. So instead: fetch a fixed sample of recent
+ * commit SHAs (one cheap paginated call), then fetch each commit's changed
+ * files in parallel (fast per-request), and tally which paths show up.
+ * Total cost is now a fixed sample size, not "number of files in the repo".
+ */
+export async function getRecentChangeFrequency(owner, repo, sha, commitLimit = 150, concurrency = 15) {
+  const shas = [];
+  try {
+    let page = 1;
+    while (shas.length < commitLimit) {
+      const perPage = Math.min(100, commitLimit - shas.length);
+      const data = await ghFetch(
+        `/repos/${owner}/${repo}/commits?sha=${encodeURIComponent(sha)}&per_page=${perPage}&page=${page}`
+      );
+      if (!Array.isArray(data) || data.length === 0) break;
+      shas.push(...data.map((c) => c.sha));
+      if (data.length < perPage) break;
+      page++;
+    }
+  } catch {
+    return new Map();
+  }
+
+  const counts = new Map();
+  let i = 0;
+  async function worker() {
+    while (i < shas.length) {
+      const idx = i++;
+      try {
+        const detail = await ghFetch(`/repos/${owner}/${repo}/commits/${shas[idx]}`);
+        for (const f of detail.files || []) {
+          counts.set(f.filename, (counts.get(f.filename) || 0) + 1);
+        }
+      } catch {
+        // One bad commit lookup shouldn't take the rest down with it.
+      }
+    }
+  }
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, shas.length || 1) }, worker)
+  );
+  return counts;
 }
 
 /** Fetches the repo's rendered-default README via GitHub's dedicated readme

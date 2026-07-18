@@ -96,7 +96,7 @@ export async function summarizeFilesBatch(files) {
   const prompt = files
     .map(
       (f, i) =>
-        `### File ${i + 1}: ${f.path}\n\`\`\`\n${f.content.slice(0, 3000)}\n\`\`\``
+        `### File ${i + 1}: ${f.path}\n\`\`\`\n${f.content.slice(0, 1800)}\n\`\`\``
     )
     .join("\n\n");
 
@@ -105,7 +105,7 @@ export async function summarizeFilesBatch(files) {
   const text = await callClaude({
     system,
     messages: [{ role: "user", content: prompt }],
-    maxTokens: 350 * files.length + 200,
+    maxTokens: 220 * files.length + 200,
   });
 
   let parsed;
