@@ -118,49 +118,59 @@ export default function Landing() {
         </div>
       </main>
 
-      <footer className="relative border-t border-border px-6 py-10">
-  <div className="max-w-3xl mx-auto flex flex-col gap-8">
-    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-8">
-      <div className="flex flex-col gap-3 max-w-xs">
-        <div className="flex items-center gap-2">
-          <GitBranch size={18} className="text-accent" />
-          <span className="font-semibold text-sm text-text-primary">CodeMap AI</span>
+      <footer className="border-t border-border mt-20">
+  <div className="max-w-6xl mx-auto px-6 py-14">
+
+    {/* Top Section */}
+    <div className="grid grid-cols-1 md:grid-cols-[1.5fr_1fr_1fr] gap-12">
+
+      {/* Brand */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <GitBranch size={22} className="text-accent" />
+          <span className="text-xl font-semibold text-text-primary">
+            CodeMap AI
+          </span>
         </div>
-        <p className="text-xs text-text-secondary leading-relaxed">
-          Fetches a repo's file tree, extracts import relationships, and
-          asks Claude to summarize and answer questions about each file
-          — grounded in the actual code, not guesses.
+
+        <p className="text-sm leading-7 text-text-secondary max-w-md">
+          Fetches a repository's file tree, extracts import relationships, and
+          uses AI to generate architecture summaries and answer questions
+          grounded in the actual code.
         </p>
       </div>
 
-      <div className="flex gap-10 sm:gap-14">
-        <div className="flex flex-col gap-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
-            Project
-          </span>
+      {/* Project */}
+      <div>
+        <h3 className="text-xs uppercase tracking-[0.2em] text-text-disabled mb-4">
+          Project
+        </h3>
 
+        <div className="flex flex-col gap-3">
           <a
             href="https://github.com/GaneshWalse08/CodeAtlas-AI-new"
             target="_blank"
             rel="noreferrer"
-            className="text-xs text-text-secondary hover:text-accent transition-colors"
+            className="text-sm text-text-secondary hover:text-accent transition-colors"
           >
-            View source
+            View Source
           </a>
         </div>
+      </div>
 
-        <div className="flex flex-col gap-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-text-disabled">
-            Made by
-          </span>
+      {/* Team */}
+      <div>
+        <h3 className="text-xs uppercase tracking-[0.2em] text-text-disabled mb-4">
+          Team
+        </h3>
 
+        <div className="flex flex-col gap-3">
           <a
             href="https://www.linkedin.com/in/ganeshwalse/"
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+            className="text-sm text-text-secondary hover:text-accent transition-colors"
           >
-            <Linkedin size={12} />
             Ganesh Walse
           </a>
 
@@ -168,52 +178,58 @@ export default function Landing() {
             href="https://www.linkedin.com/in/anagha-waghmare-8b22bb334/"
             target="_blank"
             rel="noreferrer"
-            className="flex items-center gap-1.5 text-xs text-text-secondary hover:text-accent transition-colors"
+            className="text-sm text-text-secondary hover:text-accent transition-colors"
           >
-            <Linkedin size={12} />
             Anagha Waghmare
           </a>
         </div>
       </div>
+
     </div>
 
-    <div className="border-t border-border pt-5 flex flex-col-reverse sm:flex-row items-center justify-between gap-4">
-      <p className="text-[11px] text-text-disabled">
-        © {new Date().getFullYear()} CodeMap AI. All rights reserved.
-      </p>
+    {/* Divider */}
+    <div className="border-t border-border my-10"></div>
 
-      <div className="flex items-center gap-2.5">
+    {/* Bottom */}
+    <div className="flex flex-col items-center gap-5">
+
+      <div className="flex items-center gap-4">
+
         <a
           href="https://github.com/GaneshWalse08/CodeAtlas-AI-new"
           target="_blank"
           rel="noreferrer"
-          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
-          title="View source on GitHub"
+          className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
         >
-          <Github size={13} />
+          <Github size={17} />
         </a>
 
         <a
           href="https://www.linkedin.com/in/ganeshwalse/"
           target="_blank"
           rel="noreferrer"
-          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
-          title="Ganesh Walse on LinkedIn"
+          className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
         >
-          <Linkedin size={13} />
+          <Linkedin size={17} />
         </a>
 
         <a
           href="https://www.linkedin.com/in/anagha-waghmare-8b22bb334/"
           target="_blank"
           rel="noreferrer"
-          className="w-7 h-7 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
-          title="Anagha Waghmare on LinkedIn"
+          className="w-10 h-10 rounded-full border border-border flex items-center justify-center text-text-secondary hover:text-accent hover:border-accent transition-colors"
         >
-          <Linkedin size={13} />
+          <Linkedin size={17} />
         </a>
+
       </div>
+
+      <p className="text-xs text-text-disabled text-center">
+        © {new Date().getFullYear()} CodeMap AI. All rights reserved.
+      </p>
+
     </div>
+
   </div>
 </footer>
     </div>
