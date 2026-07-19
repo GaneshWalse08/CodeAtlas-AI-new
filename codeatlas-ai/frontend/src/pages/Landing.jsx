@@ -129,7 +129,7 @@ export default function Landing() {
         <div className="flex items-center gap-2 mb-4">
           <GitBranch size={22} className="text-accent" />
           <span className="text-xl font-semibold text-text-primary">
-            CodeMap AI
+            CodeAtlas AI
           </span>
         </div>
 
