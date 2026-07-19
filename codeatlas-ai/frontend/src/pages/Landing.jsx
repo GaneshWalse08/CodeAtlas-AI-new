@@ -58,7 +58,7 @@ export default function Landing() {
 
       <header className="relative flex items-center gap-2 px-6 py-5">
         <GitBranch size={20} className="text-accent" />
-        <span className="font-semibold text-text-primary">CodeMap AI</span>
+        <span className="font-semibold text-text-primary">CodeAtlas AI</span>
       </header>
 
       <main className="relative flex-1 flex items-center justify-center px-4">
