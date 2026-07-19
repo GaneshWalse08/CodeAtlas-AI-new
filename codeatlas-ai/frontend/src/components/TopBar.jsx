@@ -50,7 +50,7 @@ export default function TopBar({ riskFilter, setRiskFilter }) {
         title="Return to landing"
       >
         <GitBranch size={18} className="text-accent" />
-        <span className="font-semibold text-sm hidden md:inline">CodeMap AI</span>
+        <span className="font-semibold text-sm hidden md:inline">CodeAtlas AI</span>
       </button>
 
       <div className="flex items-center gap-2 min-w-0">

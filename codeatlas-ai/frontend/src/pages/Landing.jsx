@@ -225,7 +225,7 @@ export default function Landing() {
       </div>
 
       <p className="text-xs text-text-disabled text-center">
-        © {new Date().getFullYear()} CodeMap AI. All rights reserved.
+        © {new Date().getFullYear()} CodeAtlas AI. All rights reserved.
       </p>
 
     </div>

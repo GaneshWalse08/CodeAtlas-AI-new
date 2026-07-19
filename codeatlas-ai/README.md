@@ -1,4 +1,4 @@
-# CodeAtlas AI (CodeMap AI)
+# CodeAtlas AI (CodeAtlas AI)
 
 Paste a GitHub URL, get an interactive map of the codebase, click any file for
 an AI summary and risk score, and ask natural-language questions grounded in
