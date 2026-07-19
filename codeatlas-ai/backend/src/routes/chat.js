@@ -27,7 +27,11 @@ const ANCHOR_PATTERNS = [
 ];
 const MAX_SUMMARY_ONLY_FILES = 80;
 const MAX_ANCHOR_FILES = 6;
-const MAX_DEEP_FILES = 6;
+const MAX_DEEP_FILES = 8;
+// Below this file count, just send full content for everything instead of
+// guessing relevance at all - most demo-sized repos fall well under this,
+// so there's no matching to get wrong.
+const SMALL_REPO_THRESHOLD = 25;
 
 function tokenize(text) {
   return text
@@ -42,23 +46,26 @@ function isOverviewQuestion(question) {
 }
 
 /**
- * Ranks files by keyword overlap against BOTH the one-line AI summary AND
- * a slice of the file's actual content - not the summary alone. A short
- * AI-written summary often won't literally contain words like "login" or
- * "database" even when the real code does, so summary-only matching was
- * missing the right file for anything but very generically-worded
- * questions. Content matches count for real signal here.
+ * Ranks files by whether the question's keywords appear anywhere in the
+ * file's path/summary or its actual content - as a SUBSTRING match, not an
+ * exact whole-word match. This matters a lot for real code: a route or
+ * function is far more often named `loginUser`, `handleLogin`, or
+ * `authLogin` than a bare standalone word "login" - exact-token matching
+ * was missing all of those. Content is searched much deeper than before
+ * (8000 chars) since the relevant line is often well past the imports.
  */
 function rankByRelevance(question, graph, topN) {
-  const qTokens = new Set(tokenize(question));
-  if (qTokens.size === 0) return [];
+  const qWords = tokenize(question);
+  if (qWords.length === 0) return [];
 
   const scored = graph.nodes.map((n) => {
-    const summaryTokens = tokenize(`${n.path} ${n.summary}`);
-    const contentTokens = tokenize((graph.contentByPath[n.path] || "").slice(0, 3000));
+    const summaryHay = `${n.path} ${n.summary}`.toLowerCase();
+    const contentHay = (graph.contentByPath[n.path] || "").slice(0, 8000).toLowerCase();
     let score = 0;
-    for (const t of summaryTokens) if (qTokens.has(t)) score += 2;
-    for (const t of contentTokens) if (qTokens.has(t)) score += 1;
+    for (const w of qWords) {
+      if (summaryHay.includes(w)) score += 3;
+      if (contentHay.includes(w)) score += 1;
+    }
     return { node: n, score };
   });
   scored.sort((a, b) => b.score - a.score);
@@ -75,6 +82,15 @@ function rankByRelevance(question, graph, topN) {
  * sitting in the repo the whole time.
  */
 function buildContext(question, graph) {
+  // Small repo - just give the model everything. No ranking to get wrong.
+  if (graph.nodes.length <= SMALL_REPO_THRESHOLD) {
+    return graph.nodes.map((n) => ({
+      path: n.path,
+      summary: n.summary,
+      content: graph.contentByPath[n.path]?.slice(0, 4000) || "",
+    }));
+  }
+
   const anchors = graph.nodes.filter((n) =>
     ANCHOR_PATTERNS.some((re) => re.test(n.name))
   ).slice(0, MAX_ANCHOR_FILES);
@@ -111,8 +127,12 @@ router.post("/chat", async (req, res) => {
   }
   const graph = job.result;
 
-  const contextFiles = buildContext(question, graph);
+   const contextFiles = buildContext(question, graph);
   const broad = isOverviewQuestion(question);
+
+  console.log(
+    `[chat] question="${question}" totalFiles=${graph.nodes.length} contextFilesSent=${contextFiles.length} smallRepoMode=${graph.nodes.length <= SMALL_REPO_THRESHOLD} filesWithContent=${contextFiles.filter((f) => f.content).length}`
+  );
 
   try {
     const result = await answerRepoQuestion({

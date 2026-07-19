@@ -160,6 +160,9 @@ export async function answerRepoQuestion({ question, contextFiles, history, maxT
     maxTokens,
   });
 
+  console.log(`[chat] context chars sent: ${context.length}, raw Claude reply (first 400 chars):`);
+  console.log(text.slice(0, 400));
+
   try {
     const parsed = extractJson(text);
     return {
